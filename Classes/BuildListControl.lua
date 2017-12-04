@@ -67,7 +67,7 @@ function BuildListClass:NewFolder()
 	end)
 end
 
-function BuildListClass:RenameBuild(build, copyOnName)
+function BuildListClass:CopyBuild(build)
 	local controls = { }
 	controls.label = common.New("LabelControl", nil, 0, 20, 0, 16, "^7Enter the new name for this "..(build.folderName and "folder:" or "build:"))
 	controls.edit = common.New("EditControl", nil, 0, 40, 350, 20, build.folderName or build.buildName, nil, "\\/:%*%?\"<>|%c", 100, function(buf)
@@ -91,30 +91,14 @@ function BuildListClass:RenameBuild(build, copyOnName)
 	controls.save = common.New("ButtonControl", nil, -45, 70, 80, 20, "Save", function()
 		local newBuildName = controls.edit.buf
 		if build.folderName then
-			if copyOnName then
-				main:CopyFolder(build.fullFileName, main.buildPath..build.subPath..newBuildName)
-			else
-				local res, msg = os.rename(build.fullFileName, main.buildPath..build.subPath..newBuildName)
-				if not res then
-					main:OpenMessagePopup("Error", "Couldn't rename '"..build.fullFileName.."' to '"..newBuildName.."': "..msg)
-					return
-				end
-			end
+			main:CopyFolder(build.fullFileName, main.buildPath..build.subPath..newBuildName)
 			self.listMode:BuildList()
 		else
 			local newFileName = newBuildName..".xml"
-			if copyOnName then
-				local res, msg = copyFile(build.fullFileName, main.buildPath..build.subPath..newFileName)
-				if not res then
-					main:OpenMessagePopup("Error", "Couldn't copy build: "..msg)
-					return
-				end
-			else
-				local res, msg = os.rename(build.fullFileName, main.buildPath..build.subPath..newFileName)
-				if not res then
-					main:OpenMessagePopup("Error", "Couldn't rename '"..build.fullFileName.."' to '"..newFileName.."': "..msg)
-					return
-				end
+			local res, msg = copyFile(build.fullFileName, main.buildPath..build.subPath..newFileName)
+			if not res then
+				main:OpenMessagePopup("Error", "Couldn't copy build: "..msg)
+				return
 			end
 			self.listMode:BuildList()
 			self:SelByFileName(newFileName)
@@ -127,7 +111,58 @@ function BuildListClass:RenameBuild(build, copyOnName)
 		main:ClosePopup()
 		self.listMode:SelectControl(self)
 	end)
-	main:OpenPopup(370, 100, (copyOnName and "Copy " or "Rename ")..(build.folderName and "Folder" or "Build"), controls, "save", "edit")	
+	main:OpenPopup(370, 100, "Copy "..(build.folderName and "Folder" or "Build"), controls, "save", "edit")	
+end
+
+function BuildListClass:RenameBuild(build)
+	local controls = { }
+	controls.label = common.New("LabelControl", nil, 0, 20, 0, 16, "^7Enter the new name for this "..(build.folderName and "folder:" or "build:"))
+	controls.edit = common.New("EditControl", nil, 0, 40, 350, 20, build.folderName or build.buildName, nil, "\\/:%*%?\"<>|%c", 100, function(buf)
+		controls.save.enabled = false
+		if build.folderName then
+			if buf:match("%S") and buf:lower() ~= build.folderName:lower() then
+				controls.save.enabled = true
+			end
+		else
+			if buf:match("%S") and buf:lower() ~= build.buildName:lower() then
+				local newName = buf..".xml"
+				local newFile = io.open(main.buildPath..build.subPath..newName, "r")
+				if newFile then
+					newFile:close()
+				else
+					controls.save.enabled = true
+				end
+			end
+		end
+	end)
+	controls.save = common.New("ButtonControl", nil, -45, 70, 80, 20, "Save", function()
+		local newBuildName = controls.edit.buf
+		if build.folderName then
+			local res, msg = os.rename(build.fullFileName, main.buildPath..build.subPath..newBuildName)
+			if not res then
+				main:OpenMessagePopup("Error", "Couldn't rename '"..build.fullFileName.."' to '"..newBuildName.."': "..msg)
+				return
+			end
+			self.listMode:BuildList()
+		else
+			local newFileName = newBuildName..".xml"
+			local res, msg = os.rename(build.fullFileName, main.buildPath..build.subPath..newFileName)
+			if not res then
+				main:OpenMessagePopup("Error", "Couldn't rename '"..build.fullFileName.."' to '"..newFileName.."': "..msg)
+				return
+			end
+			self.listMode:BuildList()
+			self:SelByFileName(newFileName)
+		end
+		main:ClosePopup()
+		self.listMode:SelectControl(self)
+	end)
+	controls.save.enabled = false
+	controls.cancel = common.New("ButtonControl", nil, 45, 70, 80, 20, "Cancel", function()
+		main:ClosePopup()
+		self.listMode:SelectControl(self)
+	end)
+	main:OpenPopup(370, 100, "Rename "..(build.folderName and "Folder" or "Build"), controls, "save", "edit")	
 end
 
 function BuildListClass:DeleteBuild(build)

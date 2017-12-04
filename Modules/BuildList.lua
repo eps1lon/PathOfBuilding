@@ -46,7 +46,7 @@ function listMode:Init(selBuildName, subPath)
 	end)
 	self.controls.open.enabled = function() return self.controls.buildList.selValue ~= nil end
 	self.controls.copy = common.New("ButtonControl", {"LEFT",self.controls.open,"RIGHT"}, 8, 0, 60, 20, "Copy", function()
-		self.controls.buildList:RenameBuild(self.controls.buildList.selValue, true)
+		self.controls.buildList:CopyBuild(self.controls.buildList.selValue)
 	end)
 	self.controls.copy.enabled = function() return self.controls.buildList.selValue ~= nil end
 	self.controls.rename = common.New("ButtonControl", {"LEFT",self.controls.copy,"RIGHT"}, 8, 0, 60, 20, "Rename", function()
@@ -95,7 +95,7 @@ function listMode:OnFrame(inputEvents)
 						end
 						self:BuildList()
 					else
-						self.controls.buildList:RenameBuild(build, true)
+						self.controls.buildList:CopyBuild(build)
 					end
 					self.controls.buildList.copyBuild = nil
 				elseif self.controls.buildList.cutBuild then

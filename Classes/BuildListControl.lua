@@ -120,14 +120,17 @@ function BuildListClass:RenameBuild(build)
 	controls.edit = common.New("EditControl", nil, 0, 40, 350, 20, build.folderName or build.buildName, nil, "\\/:%*%?\"<>|%c", 100, function(buf)
 		controls.save.enabled = false
 		if build.folderName then
-			if buf:match("%S") and buf:lower() ~= build.folderName:lower() then
+			-- check for actual names not lower-case for 
+			-- case-insensitive but preserving file systems
+			if buf:match("%S") and buf ~= build.folderName then
 				controls.save.enabled = true
 			end
 		else
-			if buf:match("%S") and buf:lower() ~= build.buildName:lower() then
+			if buf:match("%S") and buf ~= build.buildName then
 				local newName = buf..".xml"
 				local newFile = io.open(main.buildPath..build.subPath..newName, "r")
-				if newFile then
+				-- this would override an existing file
+				if newFile and buf:lower() ~= build.buildName:lower() then
 					newFile:close()
 				else
 					controls.save.enabled = true
@@ -136,24 +139,45 @@ function BuildListClass:RenameBuild(build)
 		end
 	end)
 	controls.save = common.New("ButtonControl", nil, -45, 70, 80, 20, "Save", function()
-		local newBuildName = controls.edit.buf
-		if build.folderName then
-			local res, msg = os.rename(build.fullFileName, main.buildPath..build.subPath..newBuildName)
+		local rename = function(old, new)
+			local res, msg = os.rename(old, new)
 			if not res then
-				main:OpenMessagePopup("Error", "Couldn't rename '"..build.fullFileName.."' to '"..newBuildName.."': "..msg)
-				return
+				main:OpenMessagePopup("Error", "Couldn't rename '"..old.."' to '"..new.."': "..msg)
+				return false
+			else
+				return true
 			end
-			self.listMode:BuildList()
-		else
-			local newFileName = newBuildName..".xml"
-			local res, msg = os.rename(build.fullFileName, main.buildPath..build.subPath..newFileName)
-			if not res then
-				main:OpenMessagePopup("Error", "Couldn't rename '"..build.fullFileName.."' to '"..newFileName.."': "..msg)
-				return
-			end
-			self.listMode:BuildList()
-			self:SelByFileName(newFileName)
 		end
+
+		local newName = controls.edit.buf
+		if not build.folderName then
+			newName = newName..".xml"
+		end
+		local newPath = main.buildPath..build.subPath..newName
+
+		if build.fullFileName:lower() ~= newPath:lower() then
+			if not rename(build.fullFileName, newPath) then
+				return
+			end
+		else
+			-- create tmp copy to rename on case-insensitive but preserving file systems
+			-- otherwise we get permission denied when attempting to rename foo -> Foo
+			local tmpPath = newPath..".tmp"
+
+			if rename(build.fullFileName, tmpPath) then
+				if not rename(tmpPath, newPath) then
+					return
+				end
+			else
+				return
+			end
+		end
+
+		self.listMode:BuildList()
+		if not build.folderName then
+			self:SelByFileName(newPath)
+		end
+
 		main:ClosePopup()
 		self.listMode:SelectControl(self)
 	end)
